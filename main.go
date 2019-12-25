@@ -5,6 +5,9 @@ import (
 	"machine"
 	"time"
 
+	"github.com/conejoninja/tinyfont"
+	"github.com/conejoninja/tinyfont/demoreel"
+
 	"golang.org/x/exp/rand"
 
 	"tinygo.org/x/drivers/shifter"
@@ -15,6 +18,13 @@ const (
 	BLACK = iota
 	SNAKE
 	APPLE
+	TEXT
+)
+
+const (
+	START = iota
+	PLAY
+	GAMEOVER
 )
 
 const (
@@ -33,6 +43,7 @@ type Game struct {
 	colors         []color.RGBA
 	snake          Snake
 	appleX, appleY int16
+	status         uint8
 }
 
 func main() {
@@ -41,6 +52,7 @@ func main() {
 			color.RGBA{0, 0, 0, 255},
 			color.RGBA{0, 200, 0, 255},
 			color.RGBA{250, 0, 0, 255},
+			color.RGBA{160, 160, 160, 255},
 		},
 		snake: Snake{
 			body: [208][2]int16{
@@ -54,6 +66,7 @@ func main() {
 		appleX: -1,
 		appleY: -1,
 	}
+	scoreStr := []byte("SCORE: 123")
 
 	machine.SPI1.Configure(machine.SPIConfig{
 		Frequency: 8000000,
@@ -68,35 +81,83 @@ func main() {
 	buttons.Configure()
 
 	game.display.FillScreen(game.colors[BLACK])
-	game.drawSnake()
-	game.createApple()
-	time.Sleep(2000 * time.Millisecond)
 	for {
+		switch game.status {
+		case START:
+			game.display.FillScreen(game.colors[BLACK])
 
-		// Faster
-		pressed, _ := buttons.Read8Input()
-		if pressed&machine.BUTTON_LEFT_MASK > 0 {
-			if game.snake.direction != 3 {
-				game.snake.direction = 0
+			tinyfont.WriteLine(&game.display, &demoreel.Bold24pt7b, 0, 50, []byte("SNAKE"), game.colors[TEXT])
+			tinyfont.WriteLine(&game.display, &demoreel.Regular12pt7b, 8, 100, []byte("Press START"), game.colors[TEXT])
+
+			time.Sleep(2 * time.Second)
+			for game.status == START {
+				pressed, _ := buttons.Read8Input()
+				if pressed&machine.BUTTON_START_MASK > 0 {
+					game.status = PLAY
+				}
 			}
-		}
-		if pressed&machine.BUTTON_UP_MASK > 0 {
-			if game.snake.direction != 2 {
-				game.snake.direction = 1
+			break
+		case GAMEOVER:
+			game.display.FillScreen(game.colors[BLACK])
+
+			scoreStr[7] = 48 + uint8((game.snake.length-3)/100)
+			scoreStr[8] = 48 + uint8(((game.snake.length-3)/10)%10)
+			scoreStr[9] = 48 + uint8((game.snake.length-3)%10)
+
+			tinyfont.WriteLine(&game.display, &demoreel.Regular12pt7b, 8, 50, []byte("GAME OVER"), game.colors[TEXT])
+			tinyfont.WriteLine(&game.display, &demoreel.Regular12pt7b, 8, 100, []byte("Press START"), game.colors[TEXT])
+			tinyfont.WriteLine(&game.display, &tinyfont.TomThumb, 50, 120, scoreStr, game.colors[TEXT])
+
+			time.Sleep(2 * time.Second)
+			for game.status == GAMEOVER {
+				pressed, _ := buttons.Read8Input()
+				if pressed&machine.BUTTON_START_MASK > 0 {
+					game.status = START
+				}
 			}
-		}
-		if pressed&machine.BUTTON_DOWN_MASK > 0 {
-			if game.snake.direction != 1 {
-				game.snake.direction = 2
+			break
+		case PLAY:
+			game.display.FillScreen(game.colors[BLACK])
+			game.snake.body = [208][2]int16{
+				{0, 3},
+				{0, 2},
+				{0, 1},
 			}
-		}
-		if pressed&machine.BUTTON_RIGHT_MASK > 0 {
-			if game.snake.direction != 0 {
-				game.snake.direction = 3
+			game.snake.length = 3
+			game.snake.direction = 3
+			game.drawSnake()
+			game.createApple()
+			time.Sleep(2000 * time.Millisecond)
+			for game.status == PLAY {
+
+				// Faster
+				pressed, _ := buttons.Read8Input()
+				if pressed&machine.BUTTON_LEFT_MASK > 0 {
+					if game.snake.direction != 3 {
+						game.snake.direction = 0
+					}
+				}
+				if pressed&machine.BUTTON_UP_MASK > 0 {
+					if game.snake.direction != 2 {
+						game.snake.direction = 1
+					}
+				}
+				if pressed&machine.BUTTON_DOWN_MASK > 0 {
+					if game.snake.direction != 1 {
+						game.snake.direction = 2
+					}
+				}
+				if pressed&machine.BUTTON_RIGHT_MASK > 0 {
+					if game.snake.direction != 0 {
+						game.snake.direction = 3
+					}
+				}
+				game.moveSnake()
+				time.Sleep(100 * time.Millisecond)
 			}
+
+			break
 		}
-		game.moveSnake()
-		time.Sleep(100 * time.Millisecond)
 	}
 }
 
@@ -151,8 +212,7 @@ func (g *Game) moveSnake() {
 	}
 
 	if g.collisionWithSnake(x, y) {
-		println("GAME OVER")
-		time.Sleep(10*time.Second)
+		g.status = GAMEOVER
 	}
 
 	// draw head
