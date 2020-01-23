@@ -3,12 +3,11 @@ package main
 import (
 	"image/color"
 	"machine"
+	"math/rand"
 	"time"
 
 	"github.com/conejoninja/tinyfont"
 	"github.com/conejoninja/tinyfont/demoreel"
-
-	"golang.org/x/exp/rand"
 
 	"tinygo.org/x/drivers/shifter"
 	"tinygo.org/x/drivers/st7735"
@@ -69,6 +68,9 @@ func main() {
 	scoreStr := []byte("SCORE: 123")
 
 	machine.SPI1.Configure(machine.SPIConfig{
+		SCK:       machine.SPI1_SCK_PIN,
+		MOSI:      machine.SPI1_MOSI_PIN,
+		MISO:      machine.SPI1_MISO_PIN,
 		Frequency: 8000000,
 	})
 
