@@ -6,8 +6,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/conejoninja/tinyfont"
-	"github.com/conejoninja/tinyfont/demoreel"
+	"tinygo.org/x/tinyfont"
+	"github.com/conejoninja/snake/fonts"
 
 	"tinygo.org/x/drivers/shifter"
 	"tinygo.org/x/drivers/st7735"
@@ -88,8 +88,8 @@ func main() {
 		case START:
 			game.display.FillScreen(game.colors[BLACK])
 
-			tinyfont.WriteLine(&game.display, &demoreel.Bold24pt7b, 0, 50, []byte("SNAKE"), game.colors[TEXT])
-			tinyfont.WriteLine(&game.display, &demoreel.Regular12pt7b, 8, 100, []byte("Press START"), game.colors[TEXT])
+			tinyfont.WriteLine(&game.display, &fonts.Bold24pt7b, 0, 50, []byte("SNAKE"), game.colors[TEXT])
+			tinyfont.WriteLine(&game.display, &fonts.Regular12pt7b, 8, 100, []byte("Press START"), game.colors[TEXT])
 
 			time.Sleep(2 * time.Second)
 			for game.status == START {
@@ -106,8 +106,8 @@ func main() {
 			scoreStr[8] = 48 + uint8(((game.snake.length-3)/10)%10)
 			scoreStr[9] = 48 + uint8((game.snake.length-3)%10)
 
-			tinyfont.WriteLine(&game.display, &demoreel.Regular12pt7b, 8, 50, []byte("GAME OVER"), game.colors[TEXT])
-			tinyfont.WriteLine(&game.display, &demoreel.Regular12pt7b, 8, 100, []byte("Press START"), game.colors[TEXT])
+			tinyfont.WriteLine(&game.display, &fonts.Regular12pt7b, 8, 50, []byte("GAME OVER"), game.colors[TEXT])
+			tinyfont.WriteLine(&game.display, &fonts.Regular12pt7b, 8, 100, []byte("Press START"), game.colors[TEXT])
 			tinyfont.WriteLine(&game.display, &tinyfont.TomThumb, 50, 120, scoreStr, game.colors[TEXT])
 
 			time.Sleep(2 * time.Second)

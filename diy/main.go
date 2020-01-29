@@ -6,10 +6,9 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/conejoninja/tinyfont"
-	"github.com/conejoninja/tinyfont/demoreel"
+	"github.com/conejoninja/snake/fonts"
+	"tinygo.org/x/tinyfont"
 
-	"tinygo.org/x/drivers/shifter"
 	"tinygo.org/x/drivers/st7735"
 )
 
@@ -21,14 +20,21 @@ const (
 )
 
 const (
+	LEFT = iota
+	UP
+	RIGHT
+	DOWN
+)
+
+const (
 	START = iota
 	PLAY
 	GAMEOVER
 )
 
 const (
-	WIDTH  = 16
-	HEIGHT = 13
+	WIDTH  = 13
+	HEIGHT = 16
 )
 
 type Snake struct {
@@ -68,33 +74,50 @@ func main() {
 	scoreStr := []byte("SCORE: 123")
 
 	machine.SPI0.Configure(machine.SPIConfig{
+		SCK:       machine.SPI0_SCK_PIN,
+		MOSI:      machine.SPI0_MOSI_PIN,
+		MISO:      machine.SPI0_MISO_PIN,
 		Frequency: 8000000,
 	})
 
 	game.display = st7735.New(machine.SPI0, machine.D13, machine.D7, machine.D5, machine.A5)
 	game.display.Configure(st7735.Config{
-		Rotation: st7735.ROTATION_90,
+		Rotation:     st7735.NO_ROTATION,
+		RowOffset:    1,
+		ColumnOffset: 2,
 	})
 
-	buttons := shifter.New(shifter.EIGHT_BITS, machine.A1, machine.A2, machine.A3)
-	buttons.Configure()
-
 	game.display.FillScreen(game.colors[BLACK])
-	game.status = PLAY
+
+	buttons := [4]machine.Pin{
+		machine.D11,
+		machine.D12,
+		machine.D9,
+		machine.D10,
+	}
+	b := 0
+	for b = 0; b < 4; b++ {
+		buttons[b].Configure(machine.PinConfig{Mode: machine.PinInput})
+	}
+
+	game.status = START
 	for {
 		switch game.status {
 		case START:
 			game.display.FillScreen(game.colors[BLACK])
 
-			tinyfont.WriteLine(&game.display, &demoreel.Bold24pt7b, 0, 50, []byte("SNAKE"), game.colors[TEXT])
-			tinyfont.WriteLine(&game.display, &demoreel.Regular12pt7b, 8, 100, []byte("Press START"), game.colors[TEXT])
+			tinyfont.WriteLine(&game.display, &fonts.Bold12pt7b, 26, 50, []byte("SNAKE"), game.colors[TEXT])
+			tinyfont.WriteLine(&game.display, &fonts.Regular12pt7b, 8, 100, []byte("Press any"), game.colors[TEXT])
+			tinyfont.WriteLine(&game.display, &fonts.Regular12pt7b, 14, 124, []byte("BUTTON"), game.colors[TEXT])
 
 			time.Sleep(2 * time.Second)
 			for game.status == START {
-				/*pressed, _ := buttons.Read8Input()
-				if pressed&machine.BUTTON_START_MASK > 0 {
-					game.status = PLAY
-				}*/
+				for b = 0; b < 4; b++ {
+					if !buttons[b].Get() {
+						game.status = PLAY
+						break
+					}
+				}
 			}
 			break
 		case GAMEOVER:
@@ -104,16 +127,18 @@ func main() {
 			scoreStr[8] = 48 + uint8(((game.snake.length-3)/10)%10)
 			scoreStr[9] = 48 + uint8((game.snake.length-3)%10)
 
-			tinyfont.WriteLine(&game.display, &demoreel.Regular12pt7b, 8, 50, []byte("GAME OVER"), game.colors[TEXT])
-			tinyfont.WriteLine(&game.display, &demoreel.Regular12pt7b, 8, 100, []byte("Press START"), game.colors[TEXT])
+			tinyfont.WriteLine(&game.display, &fonts.Regular12pt7b, 8, 50, []byte("GAME OVER"), game.colors[TEXT])
+			tinyfont.WriteLine(&game.display, &fonts.Regular12pt7b, 8, 100, []byte("Press ANY"), game.colors[TEXT])
 			tinyfont.WriteLine(&game.display, &tinyfont.TomThumb, 50, 120, scoreStr, game.colors[TEXT])
 
 			time.Sleep(2 * time.Second)
 			for game.status == GAMEOVER {
-				/*pressed, _ := buttons.Read8Input()
-				if pressed&machine.BUTTON_START_MASK > 0 {
-					game.status = START
-				} */
+				for b = 0; b < 4; b++ {
+					if !buttons[b].Get() {
+						game.status = START
+						break
+					}
+				}
 			}
 			break
 		case PLAY:
@@ -130,28 +155,26 @@ func main() {
 			time.Sleep(2000 * time.Millisecond)
 			for game.status == PLAY {
 
-				// Faster
-				/*pressed, _ := buttons.Read8Input()
-				if pressed&machine.BUTTON_LEFT_MASK > 0 {
+				if !buttons[LEFT].Get() {
 					if game.snake.direction != 3 {
 						game.snake.direction = 0
 					}
 				}
-				if pressed&machine.BUTTON_UP_MASK > 0 {
+				if !buttons[UP].Get() {
 					if game.snake.direction != 2 {
 						game.snake.direction = 1
 					}
 				}
-				if pressed&machine.BUTTON_DOWN_MASK > 0 {
+				if !buttons[DOWN].Get() {
 					if game.snake.direction != 1 {
 						game.snake.direction = 2
 					}
 				}
-				if pressed&machine.BUTTON_RIGHT_MASK > 0 {
+				if !buttons[RIGHT].Get() {
 					if game.snake.direction != 0 {
 						game.snake.direction = 3
 					}
-				} */
+				}
 				game.moveSnake()
 				time.Sleep(100 * time.Millisecond)
 			}
@@ -171,11 +194,11 @@ func (g *Game) collisionWithSnake(x, y int16) bool {
 }
 
 func (g *Game) createApple() {
-	g.appleX = int16(rand.Int31n(16))
-	g.appleY = int16(rand.Int31n(13))
+	g.appleX = int16(rand.Int31n(WIDTH))
+	g.appleY = int16(rand.Int31n(HEIGHT))
 	for g.collisionWithSnake(g.appleX, g.appleY) {
-		g.appleX = int16(rand.Int31n(16))
-		g.appleY = int16(rand.Int31n(13))
+		g.appleX = int16(rand.Int31n(WIDTH))
+		g.appleY = int16(rand.Int31n(HEIGHT))
 	}
 	g.drawSnakePartial(g.appleX, g.appleY, g.colors[APPLE])
 }
@@ -239,9 +262,9 @@ func (g *Game) drawSnake() {
 }
 
 func (g *Game) drawSnakePartial(x, y int16, c color.RGBA) {
-	modY := int16(9)
-	if y == 12 {
-		modY = 8
+	modX := int16(9)
+	if x == 12 {
+		modX = 8
 	}
-	g.display.FillRectangle(10*x, 10*y, 9, modY, c)
+	g.display.FillRectangle(10*x, 10*y, modX, 9, c)
 }
